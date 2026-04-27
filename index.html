@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đồng hồ Công việc Pro - Auto Save on Exit</title>
+    <style>
+        /* === GIỮ NGUYÊN CSS ĐẸP CỦA BẠN === */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
+            padding: 20px; color: #333;
+        }
+        .main-wrapper { display: flex; gap: 25px; width: 100%; max-width: 1100px; height: 680px; }
+        @media (max-width: 850px) {
+            .main-wrapper { flex-direction: column; height: auto; }
+            .container, .history-section { flex: none !important; width: 100%; height: auto !important; }
+            .history-section { max-height: 450px; }
+        }
+        .container {
+            flex: 1.3; background: rgba(255, 255, 255, 0.95);
+            border-radius: 30px; padding: 35px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            text-align: center; display: flex; flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .app-title {
+            font-size: 32px; font-weight: 800;
+            background: linear-gradient(135deg, #1e293b, #4f46e5);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 25px; letter-spacing: -1px; text-transform: uppercase;
+        }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { font-weight: 600; font-size: 14px; color: #64748b; display: block; margin-bottom: 8px; }
+        .input-group input {
+            width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 15px;
+            font-size: 16px; outline: none; background-color: #f8fafc;
+        }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; background: #f1f5f9; padding: 6px; border-radius: 15px; }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; background: transparent;
+            cursor: pointer; border-radius: 10px; font-weight: bold; color: #64748b;
+        }
+        .tab-btn.active { background: #ffffff; color: #4f46e5; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+        .time-display {
+            background: #111827; color: #00ff88;
+            border-radius: 20px; padding: 40px 10px; margin-bottom: 25px;
+            box-shadow: inset 0 5px 15px rgba(0,0,0,0.5); border: 4px solid #374151;
+        }
+        .time-main {
+            font-size: 65px; font-weight: bold; font-family: 'Consolas', monospace;
+            display: flex; justify-content: center; align-items: baseline;
+            text-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
+        }
+        .ms-digit { font-size: 35px; opacity: 0.8; margin-left: 8px; width: 60px; text-align: left; }
+        .button-grid { display: grid; grid-template-columns: 0.8fr 1.2fr 1fr; gap: 12px; }
+        button.ctrl-btn {
+            padding: 18px 5px; border-radius: 16px; cursor: pointer;
+            font-weight: 800; border: none; font-size: 14px; text-transform: uppercase;
+        }
+        .btn-new { background: #64748b; color: white; }
+        .btn-start { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-stop { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .history-section {
+            flex: 0.8; background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px); border-radius: 30px; padding: 25px;
+            display: flex; flex-direction: column;
+        }
+        #historyList { flex: 1; overflow-y: auto; }
+        .history-item {
+            background: rgba(255, 255, 255, 0.7); border: 1px solid #e2e8f0;
+            padding: 15px; border-radius: 16px; margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+        }
+        .history-item.active-item { border-color: #10b981; background: #f0fdf4; border-width: 2px; }
+        .item-info span { color: #4f46e5; font-weight: 700; font-family: monospace; font-size: 16px; }
+        .delete-btn { color: #cbd5e1; font-size: 20px; background: none; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="main-wrapper">
+    <div class="container">
+        <h1 class="app-title">Đồng hồ Công việc</h1>
+        <div class="input-group">
+            <label>Nội dung thực hiện:</label>
+            <input type="text" id="userName" placeholder="Ví dụ: Họp team, Code UI...">
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" id="tabTimer" onclick="switchMode('timer')">⏱️ Đếm Tiến</button>
+            <button class="tab-btn" id="tabCountdown" onclick="switchMode('countdown')">⏳ Đếm Ngược</button>
+        </div>
+        <div id="countdownSettings" style="display:none; margin-bottom: 15px;">
+            <input type="text" id="countdownInput" placeholder="00:15:00" style="width:100%; padding:14px; text-align:center; border:2px dashed #4f46e5; border-radius:12px; font-weight:bold; color:#4f46e5;">
+        </div>
+        <div class="time-display">
+            <div class="time-main">
+                <span id="display-main">00:00:00</span>
+                <span class="ms-digit" id="display-ms">.00</span>
+            </div>
+        </div>
+        <div class="button-grid">
+            <button class="ctrl-btn btn-new" onclick="resetNew()">+ MỚI</button>
+            <button class="ctrl-btn btn-start" id="startBtn" onclick="start()">▶ BẮT ĐẦU</button>
+            <button class="ctrl-btn btn-stop" id="stopBtn" onclick="autoSaveAndStop()">⏸ LƯU</button>
+        </div>
+    </div>
+    <div class="history-section">
+        <div class="history-title">📋 LỊCH SỬ LƯU TRỮ</div>
+        <div id="historyList"></div>
+    </div>
+</div>
+
+<script>
+    let historyData = JSON.parse(localStorage.getItem('work_timer_final_v5')) || [];
+    let currentMode = 'timer';
+    let currentId = null;
+    let timeMs = 0; 
+    let startTime = null; 
+    let timerInterval = null;
+    let isRunning = false;
+
+    // === QUAN TRỌNG: TỰ LƯU KHI THOÁT TRÌNH DUYỆT ===
+    window.addEventListener('beforeunload', function (e) {
+        if (isRunning || timeMs > 0) {
+            autoSaveAndStop();
+        }
+    });
+
+    function switchMode(mode) {
+        if(isRunning) return;
+        currentMode = mode;
+        document.getElementById('tabTimer').classList.toggle('active', mode === 'timer');
+        document.getElementById('tabCountdown').classList.toggle('active', mode === 'countdown');
+        document.getElementById('countdownSettings').style.display = (mode === 'countdown' ? 'block' : 'none');
+        timeMs = 0;
+        updateDisplay();
+    }
+
+    function formatTime(ms) {
+        let totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        let h = Math.floor(totalSeconds / 3600);
+        let m = Math.floor((totalSeconds % 3600) / 60);
+        let s = totalSeconds % 60;
+        let mil = Math.max(0, Math.floor((ms % 1000) / 10));
+        return {
+            main: [h, m, s].map(v => v.toString().padStart(2, '0')).join(':'),
+            ms: "." + mil.toString().padStart(2, '0')
+        };
+    }
+
+    function start() {
+        if (isRunning) return;
+
+        if (currentMode === 'countdown' && timeMs <= 0) {
+            let p = document.getElementById('countdownInput').value.split(':');
+            let s = 0, m = 1;
+            while(p.length > 0) { s += m * parseInt(p.pop() || 0, 10); m *= 60; }
+            timeMs = s * 1000;
+        }
+
+        if (currentMode === 'countdown' && timeMs <= 0) return alert("Vui lòng đặt thời gian!");
+
+        isRunning = true;
+        document.getElementById('startBtn').disabled = true;
+
+        if (currentMode === 'timer') startTime = Date.now() - timeMs;
+        else startTime = Date.now() + timeMs;
+
+        timerInterval = setInterval(() => {
+            let now = Date.now();
+            if (currentMode === 'timer') timeMs = now - startTime;
+            else {
+                timeMs = startTime - now;
+                if (timeMs <= 0) { timeMs = 0; autoSaveAndStop(); alert("Hết giờ!"); }
+            }
+            updateDisplay();
+        }, 35);
+    }
+
+    function autoSaveAndStop() {
+        if (!isRunning && timeMs === 0) return;
+        
+        clearInterval(timerInterval);
+        isRunning = false;
+        document.getElementById('startBtn').disabled = false;
+
+        const name = document.getElementById('userName').value.trim() || "Công việc không tên";
+        
+        if (currentId) {
+            const idx = historyData.findIndex(i => i.id === currentId);
+            if (idx !== -1) { 
+                historyData[idx].time = timeMs; 
+                historyData[idx].name = name; 
+                historyData[idx].mode = currentMode;
+            }
+        } else if (timeMs > 0) {
+            const item = { id: Date.now(), name: name, time: timeMs, mode: currentMode };
+            historyData.unshift(item);
+            currentId = item.id;
+        }
+        
+        localStorage.setItem('work_timer_final_v5', JSON.stringify(historyData));
+        renderHistory();
+    }
+
+    function resetNew() {
+        if (isRunning || timeMs > 0) autoSaveAndStop();
+        currentId = null; timeMs = 0;
+        document.getElementById('userName').value = "";
+        document.getElementById('countdownInput').value = "";
+        updateDisplay(); renderHistory();
+    }
+
+    function updateDisplay() {
+        const t = formatTime(timeMs);
+        document.getElementById('display-main').textContent = t.main;
+        document.getElementById('display-ms').textContent = t.ms;
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        if (historyData.length === 0) {
+            list.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-size:13px;">Chưa có lịch sử.</div>`;
+            return;
+        }
+        list.innerHTML = historyData.map(item => {
+            const t = formatTime(item.time);
+            return `
+                <div class="history-item ${item.id === currentId ? 'active-item' : ''}" onclick="resume(${item.id})">
+                    <div class="item-info">
+                        <b>${item.name}</b>
+                        <span>${t.main}${t.ms}</span>
+                    </div>
+                    <button class="delete-btn" onclick="event.stopPropagation(); remove(${item.id})">×</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function resume(id) {
+        if (id === currentId) return;
+        autoSaveAndStop();
+        const item = historyData.find(i => i.id === id);
+        if (item) {
+            currentId = id; timeMs = item.time; currentMode = item.mode;
+            document.getElementById('userName').value = item.name;
+            document.getElementById('tabTimer').classList.toggle('active', currentMode === 'timer');
+            document.getElementById('tabCountdown').classList.toggle('active', currentMode === 'countdown');
+            document.getElementById('countdownSettings').style.display = (currentMode === 'countdown' ? 'block' : 'none');
+            updateDisplay(); renderHistory();
+        }
+    }
+
+    function remove(id) {
+        if (id === currentId) { currentId = null; timeMs = 0; document.getElementById('userName').value = ""; updateDisplay(); }
+        historyData = historyData.filter(i => i.id !== id);
+        localStorage.setItem('work_timer_final_v5', JSON.stringify(historyData));
+        renderHistory();
+    }
+
+    renderHistory();
+</script>
+</body>
+</html>
