@@ -5,28 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đồng hồ Công việc Pro - Team Sync</title>
     <style>
-        /* === GIAO DIỆN HIỆN ĐẠI === */
+        /* === GIAO DIỆN CHÍNH === */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             display: flex; justify-content: center; align-items: center;
             min-height: 100vh;
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
-            padding: 20px; color: #333;
+            padding: 10px; color: #333;
         }
-        .main-wrapper { display: flex; gap: 25px; width: 100%; max-width: 1050px; height: 680px; }
-        @media (max-width: 850px) {
-            .main-wrapper { flex-direction: column; height: auto; }
-            .container, .history-section { flex: none !important; width: 100%; height: auto !important; }
-            .history-section { max-height: 450px; }
-        }
+        .main-wrapper { display: flex; gap: 20px; width: 100%; max-width: 1050px; height: 680px; }
+        
         .container {
             flex: 1.3; background: rgba(255, 255, 255, 0.95);
-            border-radius: 30px; padding: 35px;
+            border-radius: 30px; padding: 30px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.3);
             text-align: center; display: flex; flex-direction: column;
             border: 1px solid rgba(255,255,255,0.3);
         }
+
+        /* === ĐIỀU CHỈNH CHO ĐIỆN THOẠI === */
+        @media (max-width: 600px) {
+            .main-wrapper { flex-direction: column; height: auto; gap: 15px; }
+            .container { padding: 20px; border-radius: 20px; }
+            .app-title { font-size: 22px !important; margin-bottom: 15px !important; }
+            
+            /* Giảm kích thước số đồng hồ trên mobile */
+            .time-main { font-size: 40px !important; } 
+            .ms-digit { font-size: 20px !important; width: 35px !important; }
+            .time-display { padding: 25px 5px !important; margin-bottom: 15px !important; }
+            
+            .button-grid { gap: 8px !important; }
+            button.ctrl-btn { padding: 15px 2px !important; font-size: 12px !important; border-radius: 12px !important; }
+            
+            .history-section { padding: 15px !important; border-radius: 20px !important; }
+        }
+
         .app-title {
             font-size: 32px; font-weight: 800;
             background: linear-gradient(135deg, #1e293b, #4f46e5);
@@ -36,15 +50,16 @@
         .input-group { margin-bottom: 20px; text-align: left; }
         .input-group label { font-weight: 600; font-size: 14px; color: #64748b; display: block; margin-bottom: 8px; }
         .input-group input {
-            width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 15px;
+            width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px;
             font-size: 16px; outline: none; background-color: #f8fafc;
         }
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; background: #f1f5f9; padding: 6px; border-radius: 15px; }
         .tab-btn {
             flex: 1; padding: 12px; border: none; background: transparent;
-            cursor: pointer; border-radius: 10px; font-weight: bold; color: #64748b;
+            cursor: pointer; border-radius: 10px; font-weight: bold; color: #64748b; font-size: 13px;
         }
         .tab-btn.active { background: #ffffff; color: #4f46e5; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+        
         .time-display {
             background: #111827; color: #00ff88;
             border-radius: 20px; padding: 40px 10px; margin-bottom: 25px;
@@ -55,7 +70,8 @@
             display: flex; justify-content: center; align-items: baseline;
             text-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
         }
-        .ms-digit { font-size: 35px; opacity: 0.8; margin-left: 8px; width: 60px; text-align: left; }
+        .ms-digit { font-size: 35px; opacity: 0.8; margin-left: 5px; width: 60px; text-align: left; }
+        
         .button-grid { display: grid; grid-template-columns: 0.8fr 1.2fr 1fr; gap: 12px; }
         button.ctrl-btn {
             padding: 18px 5px; border-radius: 16px; cursor: pointer;
@@ -64,21 +80,26 @@
         .btn-new { background: #64748b; color: white; }
         .btn-start { background: linear-gradient(135deg, #10b981, #059669); color: white; }
         .btn-stop { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+
         .history-section {
             flex: 0.8; background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(10px); border-radius: 30px; padding: 25px;
-            display: flex; flex-direction: column;
+            display: flex; flex-direction: column; box-shadow: 0 15px 35px rgba(0,0,0,0.2);
         }
-        .history-title { font-weight: bold; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }
+        .history-title { font-weight: bold; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; text-transform: uppercase; font-size: 14px; }
         #historyList { flex: 1; overflow-y: auto; }
+        
         .history-item {
-            background: rgba(255, 255, 255, 0.7); border: 1px solid #e2e8f0;
-            padding: 15px; border-radius: 16px; margin-bottom: 12px;
-            display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+            background: white; border: 1px solid #e2e8f0;
+            padding: 12px; border-radius: 16px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center; 
+            cursor: pointer;
         }
         .history-item.active-item { border-color: #10b981; background: #f0fdf4; border-width: 2px; }
-        .item-info span { color: #4f46e5; font-weight: 700; font-family: monospace; font-size: 16px; }
-        .delete-btn { color: #cbd5e1; font-size: 20px; background: none; border: none; cursor: pointer; }
+        .item-info { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; flex: 1; }
+        .item-info b { color: #1e293b; font-size: 14px; text-align: left; word-break: break-word; }
+        .item-info span { color: #4f46e5; font-weight: 700; font-family: 'Consolas', monospace; font-size: 15px; background: #f1f5f9; padding: 1px 8px; border-radius: 5px; }
+        .delete-btn { color: #cbd5e1; font-size: 20px; background: none; border: none; cursor: pointer; padding-left: 10px; }
     </style>
 </head>
 <body>
@@ -119,7 +140,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    // MÃ CONFIG ĐÃ ĐƯỢC GHÉP HOÀN CHỈNH
     const firebaseConfig = {
         apiKey: "AIzaSyD_eiQ9nN679Iuv5FlXSgK28ZFMJCMXAKU",
         authDomain: "work-timer-fcbf1.firebaseapp.com",
@@ -143,9 +163,7 @@
     let isRunning = false;
     let historyData = {};
 
-    window.addEventListener('beforeunload', () => {
-        if (isRunning || timeMs > 0) window.autoSaveAndStop();
-    });
+    window.addEventListener('beforeunload', () => { if (isRunning || timeMs > 0) window.autoSaveAndStop(); });
 
     onValue(historyRef, (snapshot) => {
         historyData = snapshot.val() || {};
@@ -171,11 +189,9 @@
             timeMs = s * 1000;
         }
         if (currentMode === 'countdown' && timeMs <= 0) return alert("Nhập giờ!");
-
         isRunning = true;
         document.getElementById('startBtn').disabled = true;
         startTime = (currentMode === 'timer') ? Date.now() - timeMs : Date.now() + timeMs;
-
         timerInterval = setInterval(() => {
             let now = Date.now();
             timeMs = (currentMode === 'timer') ? now - startTime : startTime - now;
@@ -190,7 +206,6 @@
         isRunning = false;
         document.getElementById('startBtn').disabled = false;
         const name = document.getElementById('userName').value.trim() || "Công việc không tên";
-        
         if (currentId) {
             await update(ref(db, `work_history/${currentId}`), { name, time: timeMs, mode: currentMode });
         } else if (timeMs > 0) {
@@ -246,7 +261,10 @@
             let displayTime = [Math.floor(ts/3600), Math.floor((ts%3600)/60), ts%60].map(v => v.toString().padStart(2,'0')).join(':');
             return `
                 <div class="history-item ${item.id === currentId ? 'active-item' : ''}" onclick="resume('${item.id}')">
-                    <div class="item-info"><b>${item.name}</b><span>${displayTime}</span></div>
+                    <div class="item-info">
+                        <b>${item.name}</b>
+                        <span>${displayTime}</span>
+                    </div>
                     <button class="delete-btn" onclick="event.stopPropagation(); remove('${item.id}')">×</button>
                 </div>`;
         }).join('');
