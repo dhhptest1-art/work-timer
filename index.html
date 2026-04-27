@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đồng hồ Công việc Pro - Auto Save on Exit</title>
+    <title>Đồng hồ Công việc Pro - Team Sync</title>
     <style>
-        /* === GIỮ NGUYÊN CSS ĐẸP CỦA BẠN === */
+        /* === GIAO DIỆN HIỆN ĐẠI === */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -14,7 +14,7 @@
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #312e81 100%);
             padding: 20px; color: #333;
         }
-        .main-wrapper { display: flex; gap: 25px; width: 100%; max-width: 1100px; height: 680px; }
+        .main-wrapper { display: flex; gap: 25px; width: 100%; max-width: 1050px; height: 680px; }
         @media (max-width: 850px) {
             .main-wrapper { flex-direction: column; height: auto; }
             .container, .history-section { flex: none !important; width: 100%; height: auto !important; }
@@ -31,7 +31,7 @@
             font-size: 32px; font-weight: 800;
             background: linear-gradient(135deg, #1e293b, #4f46e5);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            margin-bottom: 25px; letter-spacing: -1px; text-transform: uppercase;
+            margin-bottom: 25px; text-transform: uppercase;
         }
         .input-group { margin-bottom: 20px; text-align: left; }
         .input-group label { font-weight: 600; font-size: 14px; color: #64748b; display: block; margin-bottom: 8px; }
@@ -69,6 +69,7 @@
             backdrop-filter: blur(10px); border-radius: 30px; padding: 25px;
             display: flex; flex-direction: column;
         }
+        .history-title { font-weight: bold; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }
         #historyList { flex: 1; overflow-y: auto; }
         .history-item {
             background: rgba(255, 255, 255, 0.7); border: 1px solid #e2e8f0;
@@ -87,7 +88,7 @@
         <h1 class="app-title">Đồng hồ Công việc</h1>
         <div class="input-group">
             <label>Nội dung thực hiện:</label>
-            <input type="text" id="userName" placeholder="Ví dụ: Họp team, Code UI...">
+            <input type="text" id="userName" placeholder="Nhập tên công việc...">
         </div>
         <div class="tabs">
             <button class="tab-btn active" id="tabTimer" onclick="switchMode('timer')">⏱️ Đếm Tiến</button>
@@ -109,28 +110,49 @@
         </div>
     </div>
     <div class="history-section">
-        <div class="history-title">📋 LỊCH SỬ LƯU TRỮ</div>
+        <div class="history-title">📋 LỊCH SỬ CHUNG (TEAM)</div>
         <div id="historyList"></div>
     </div>
 </div>
 
-<script>
-    let historyData = JSON.parse(localStorage.getItem('work_timer_final_v5')) || [];
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // MÃ CONFIG ĐÃ ĐƯỢC GHÉP HOÀN CHỈNH
+    const firebaseConfig = {
+        apiKey: "AIzaSyD_eiQ9nN679Iuv5FlXSgK28ZFMJCMXAKU",
+        authDomain: "work-timer-fcbf1.firebaseapp.com",
+        databaseURL: "https://work-timer-fcbf1-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        projectId: "work-timer-fcbf1",
+        storageBucket: "work-timer-fcbf1.firebasestorage.app",
+        messagingSenderId: "49289843710",
+        appId: "1:49289843710:web:83177b27721d470f9be6af",
+        measurementId: "G-QEE66C04N5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const historyRef = ref(db, 'work_history');
+
     let currentMode = 'timer';
     let currentId = null;
     let timeMs = 0; 
     let startTime = null; 
     let timerInterval = null;
     let isRunning = false;
+    let historyData = {};
 
-    // === QUAN TRỌNG: TỰ LƯU KHI THOÁT TRÌNH DUYỆT ===
-    window.addEventListener('beforeunload', function (e) {
-        if (isRunning || timeMs > 0) {
-            autoSaveAndStop();
-        }
+    window.addEventListener('beforeunload', () => {
+        if (isRunning || timeMs > 0) window.autoSaveAndStop();
     });
 
-    function switchMode(mode) {
+    onValue(historyRef, (snapshot) => {
+        historyData = snapshot.val() || {};
+        renderHistory();
+    });
+
+    window.switchMode = (mode) => {
         if(isRunning) return;
         currentMode = mode;
         document.getElementById('tabTimer').classList.toggle('active', mode === 'timer');
@@ -138,131 +160,97 @@
         document.getElementById('countdownSettings').style.display = (mode === 'countdown' ? 'block' : 'none');
         timeMs = 0;
         updateDisplay();
-    }
+    };
 
-    function formatTime(ms) {
-        let totalSeconds = Math.max(0, Math.floor(ms / 1000));
-        let h = Math.floor(totalSeconds / 3600);
-        let m = Math.floor((totalSeconds % 3600) / 60);
-        let s = totalSeconds % 60;
-        let mil = Math.max(0, Math.floor((ms % 1000) / 10));
-        return {
-            main: [h, m, s].map(v => v.toString().padStart(2, '0')).join(':'),
-            ms: "." + mil.toString().padStart(2, '0')
-        };
-    }
-
-    function start() {
+    window.start = () => {
         if (isRunning) return;
-
         if (currentMode === 'countdown' && timeMs <= 0) {
             let p = document.getElementById('countdownInput').value.split(':');
             let s = 0, m = 1;
             while(p.length > 0) { s += m * parseInt(p.pop() || 0, 10); m *= 60; }
             timeMs = s * 1000;
         }
-
-        if (currentMode === 'countdown' && timeMs <= 0) return alert("Vui lòng đặt thời gian!");
+        if (currentMode === 'countdown' && timeMs <= 0) return alert("Nhập giờ!");
 
         isRunning = true;
         document.getElementById('startBtn').disabled = true;
-
-        if (currentMode === 'timer') startTime = Date.now() - timeMs;
-        else startTime = Date.now() + timeMs;
+        startTime = (currentMode === 'timer') ? Date.now() - timeMs : Date.now() + timeMs;
 
         timerInterval = setInterval(() => {
             let now = Date.now();
-            if (currentMode === 'timer') timeMs = now - startTime;
-            else {
-                timeMs = startTime - now;
-                if (timeMs <= 0) { timeMs = 0; autoSaveAndStop(); alert("Hết giờ!"); }
-            }
+            timeMs = (currentMode === 'timer') ? now - startTime : startTime - now;
+            if (timeMs <= 0) { timeMs = 0; window.autoSaveAndStop(); alert("Hết giờ!"); }
             updateDisplay();
         }, 35);
-    }
+    };
 
-    function autoSaveAndStop() {
+    window.autoSaveAndStop = async () => {
         if (!isRunning && timeMs === 0) return;
-        
         clearInterval(timerInterval);
         isRunning = false;
         document.getElementById('startBtn').disabled = false;
-
         const name = document.getElementById('userName').value.trim() || "Công việc không tên";
         
         if (currentId) {
-            const idx = historyData.findIndex(i => i.id === currentId);
-            if (idx !== -1) { 
-                historyData[idx].time = timeMs; 
-                historyData[idx].name = name; 
-                historyData[idx].mode = currentMode;
-            }
+            await update(ref(db, `work_history/${currentId}`), { name, time: timeMs, mode: currentMode });
         } else if (timeMs > 0) {
-            const item = { id: Date.now(), name: name, time: timeMs, mode: currentMode };
-            historyData.unshift(item);
-            currentId = item.id;
+            const newPostRef = push(historyRef);
+            currentId = newPostRef.key;
+            await set(newPostRef, { id: currentId, name, time: timeMs, mode: currentMode, timestamp: Date.now() });
         }
-        
-        localStorage.setItem('work_timer_final_v5', JSON.stringify(historyData));
-        renderHistory();
-    }
+    };
 
-    function resetNew() {
-        if (isRunning || timeMs > 0) autoSaveAndStop();
+    window.resetNew = () => {
+        if (isRunning || timeMs > 0) window.autoSaveAndStop();
         currentId = null; timeMs = 0;
         document.getElementById('userName').value = "";
-        document.getElementById('countdownInput').value = "";
-        updateDisplay(); renderHistory();
-    }
+        updateDisplay();
+    };
 
-    function updateDisplay() {
-        const t = formatTime(timeMs);
-        document.getElementById('display-main').textContent = t.main;
-        document.getElementById('display-ms').textContent = t.ms;
-    }
-
-    function renderHistory() {
-        const list = document.getElementById('historyList');
-        if (historyData.length === 0) {
-            list.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-size:13px;">Chưa có lịch sử.</div>`;
-            return;
-        }
-        list.innerHTML = historyData.map(item => {
-            const t = formatTime(item.time);
-            return `
-                <div class="history-item ${item.id === currentId ? 'active-item' : ''}" onclick="resume(${item.id})">
-                    <div class="item-info">
-                        <b>${item.name}</b>
-                        <span>${t.main}${t.ms}</span>
-                    </div>
-                    <button class="delete-btn" onclick="event.stopPropagation(); remove(${item.id})">×</button>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function resume(id) {
+    window.resume = (id) => {
         if (id === currentId) return;
-        autoSaveAndStop();
-        const item = historyData.find(i => i.id === id);
+        window.autoSaveAndStop();
+        const item = historyData[id];
         if (item) {
             currentId = id; timeMs = item.time; currentMode = item.mode;
             document.getElementById('userName').value = item.name;
             document.getElementById('tabTimer').classList.toggle('active', currentMode === 'timer');
             document.getElementById('tabCountdown').classList.toggle('active', currentMode === 'countdown');
             document.getElementById('countdownSettings').style.display = (currentMode === 'countdown' ? 'block' : 'none');
-            updateDisplay(); renderHistory();
+            updateDisplay();
         }
+    };
+
+    window.remove = (id) => {
+        if (confirm("Xóa mục này khỏi danh sách chung?")) {
+            if (id === currentId) window.resetNew();
+            remove(ref(db, `work_history/${id}`));
+        }
+    };
+
+    function updateDisplay() {
+        let totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
+        let h = Math.floor(totalSeconds / 3600);
+        let m = Math.floor((totalSeconds % 3600) / 60);
+        let s = totalSeconds % 60;
+        let mil = Math.max(0, Math.floor((timeMs % 1000) / 10));
+        document.getElementById('display-main').textContent = [h,m,s].map(v => v.toString().padStart(2,'0')).join(':');
+        document.getElementById('display-ms').textContent = "." + mil.toString().padStart(2, '0');
     }
 
-    function remove(id) {
-        if (id === currentId) { currentId = null; timeMs = 0; document.getElementById('userName').value = ""; updateDisplay(); }
-        historyData = historyData.filter(i => i.id !== id);
-        localStorage.setItem('work_timer_final_v5', JSON.stringify(historyData));
-        renderHistory();
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        const items = Object.values(historyData).sort((a, b) => b.timestamp - a.timestamp);
+        list.innerHTML = items.map(item => {
+            let ts = Math.floor(item.time / 1000);
+            let displayTime = [Math.floor(ts/3600), Math.floor((ts%3600)/60), ts%60].map(v => v.toString().padStart(2,'0')).join(':');
+            return `
+                <div class="history-item ${item.id === currentId ? 'active-item' : ''}" onclick="resume('${item.id}')">
+                    <div class="item-info"><b>${item.name}</b><span>${displayTime}</span></div>
+                    <button class="delete-btn" onclick="event.stopPropagation(); remove('${item.id}')">×</button>
+                </div>`;
+        }).join('');
     }
-
-    renderHistory();
 </script>
 </body>
 </html>
